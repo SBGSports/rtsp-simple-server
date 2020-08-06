@@ -756,16 +756,21 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		}
 
 	case gortsplib.PLAY:
+		var alreadyPlaying = false;
 		if c.state != clientStatePrePlay {
-			c.writeResError(req, gortsplib.StatusBadRequest,
-				fmt.Errorf("client is in state '%s' instead of '%s'", c.state, clientStatePrePlay))
-			return false
+			if c.state != clientStatePlay {
+				c.writeResError(req, gortsplib.StatusBadRequest,
+					fmt.Errorf("client is in state '%s' instead of '%s'", c.state, clientStatePrePlay))
+				return false
+			}
+			alreadyPlaying = true
 		}
 
 		// path can end with a slash, remove it
 		path = strings.TrimSuffix(path, "/")
 
 		if path != c.pathName {
+			fmt.Errorf("path failure")
 			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathName, path))
 			return false
 		}
@@ -775,6 +780,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		c.p.events <- programEventClientPlay1{res, c}
 		err := <-res
 		if err != nil {
+			fmt.Errorf("programEventClientPlay1 failure")
 			c.writeResError(req, gortsplib.StatusBadRequest, err)
 			return false
 		}
@@ -790,6 +796,9 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			},
 		})
 
+		if alreadyPlaying {
+			return true;
+		}
 		c.runPlay(path)
 		return false
 
